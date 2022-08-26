@@ -1,0 +1,54 @@
+from pyspark import SparkContext
+from pyspark import SparkConf
+from pyspark.sql.types import*
+from pyspark.sql.functions import*
+from pyspark.sql import*
+from urllib import request
+from pyspark.sql import functions as F
+conf = SparkConf().setAppName("spark run").setMaster("local[*]")
+sc =  SparkContext(conf=conf)
+sc.setLogLevel("Error")
+spark = SparkSession.builder.getOrCreate()
+print("------step 2---------------")
+avrodf = spark.read.format("com.databricks.spark.avro").option("header","true").load("file:///C:/data/projectsample.avro")
+avrodf.show()
+avrodf.printSchema()
+print("------step 3---------------")
+urldata = request.urlopen("").read().decode("utf8")
+rdd = sc.parallelize([urldata])
+dfurl = spark.read.json(rdd)
+dfurl.show()
+dfurl.printSchema()
+flaturldata = dfurl.withColumn("results",expr("explode(results)"))
+flaturldata.show()
+flaturldata.printSchema()
+print("------step 4---------------")
+flaturldata1=flaturldata.select(col("nationality"),col("results.user.cell"),col("results.user.dob"),col("results.user.email"),col("results.user.gender"),col("results.user.location.*"),col("results.user.md5"),col("results.user.name.*"),col("results.user.password"),col("results.user.phone"),col("results.user.picture.*"),col("results.user.registered"),col("results.user.salt"),col("results.user.sha1"),col("results.user.sha256"),col("results.user.username"),col("seed"),col("version"))
+flaturldata1.show()
+flaturldata1.printSchema()
+print("------step 5---------------")
+rnurl = flaturldata1.withColumn("username",regexp_replace(col("username"),"[0-9]",""))
+rnurl.show()
+print("------step 6---------------")
+joindf = avrodf.join(broadcast(rnurl),['username'],'left')
+joindf.show()
+print("------step 7(a)---------------")
+unavailablecustomer = joindf.filter(col("nationality").isNull())
+unavailablecustomer.show()
+print("------step 7(b)---------------")
+availablecustomer=joindf.filter(col("nationality").isNotNull())
+availablecustomer.show()
+print("------step 8a---------------")
+nullreplace = unavailablecustomer.na.fill("Not Available").na.fill(value=0)
+nullreplace.show()
+print("------step 9---------------")
+uncurDate = unavailablecustomer.withColumn("current_date",F.current_date())
+uncurDate.show()
+avcurDate = availablecustomer.withColumn("current_date",F.current_date())
+avcurDate.show()
+
+
+
+
+
+
