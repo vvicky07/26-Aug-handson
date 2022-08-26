@@ -102,6 +102,14 @@ object sparkobj {
 						val uncurDate = unavailablecustomer.withColumn("current_date",current_date()).show
 
 						val avcurDate = availablecustomer.withColumn("current_date",current_date()).show
+						avcurDate.write.format("jdbc")
+						               .option("driver","com.driver.cj.mysql")
+							       .option("url","")
+							       .option("table","db")
+							       .option("username","root")
+							       .option("password","*****")
+							       .load()
+							       
 
 
 		} 
