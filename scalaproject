@@ -1,0 +1,110 @@
+package sparkpack
+import org.apache.spark.SparkConf
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql._
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+import scala.io.Source._
+//import org.apache.spark._
+
+object sparkobj {
+
+	def main(args:Array[String]):Unit=
+		{
+
+				val conf = new SparkConf().setAppName("first").setMaster("local[*]")
+
+						val sc = new SparkContext(conf)
+						sc.setLogLevel("Error")
+
+
+						val spark = SparkSession.builder()
+
+
+
+						.getOrCreate()
+
+						import spark.implicits._
+					
+	println("------step 2---------------")
+
+						val avrodf = spark.read.format("com.databricks.spark.avro").option("header","true").load("file:///C:/data/projectsample.avro")
+						avrodf.show()
+						avrodf.printSchema()
+						println("------step 3---------------")
+
+						val urldata =fromURL("https://randomuser.me/api/0.8/?results=1000").mkString
+						val rdd = sc.parallelize(List(urldata))
+						val dfurl = spark.read.json(rdd)
+
+						dfurl.show()
+						dfurl.printSchema()
+
+
+						val flaturldata = dfurl.withColumn("results",expr("explode(results)"))
+						flaturldata.show()
+						flaturldata.printSchema()
+						println("------step 4---------------")
+
+						val flaturldata1 = flaturldata.select(
+								col("nationality"),
+								col("results.user.cell"),
+								col("results.user.dob"),
+								col("results.user.email"),
+								col("results.user.gender"),
+								col("results.user.location.*"),
+								col("results.user.md5"),
+								col("results.user.name.*"),
+								col("results.user.password"),
+								col("results.user.phone"),
+								col("results.user.picture.*"),
+								col("results.user.registered"),
+								col("results.user.salt"),
+								col("results.user.sha1"),
+								col("results.user.sha256"),
+								col("results.user.username"),
+								col("seed"),
+								col("version")
+
+
+								)
+						flaturldata1.show()
+						flaturldata1.printSchema()
+						println("------step 5---------------")
+
+						val rnurl = flaturldata1.withColumn("username",regexp_replace(col("username"),"[0-9]",""))
+						rnurl.show()
+						println("------step 6---------------")
+
+						val joindf = avrodf.join(broadcast(rnurl),Seq("username"),"left")
+						joindf.show()
+						println("------step 7(a)---------------")
+
+
+						val unavailablecustomer = joindf.filter(col("nationality").isNull)
+						unavailablecustomer.show()
+
+						println("------step 7(b)---------------")
+						val availablecustomer=joindf.filter(col("nationality").isNotNull)
+						availablecustomer.show()
+
+
+
+						println("------step 8a---------------")
+
+						val nullreplace = unavailablecustomer.na.fill("Not Available").na.fill(0)
+
+						nullreplace.show()
+
+						println("------step 9---------------")
+						val uncurDate = unavailablecustomer.withColumn("current_date",current_date()).show
+
+						val avcurDate = availablecustomer.withColumn("current_date",current_date()).show
+
+
+		} 
+}
+
+
