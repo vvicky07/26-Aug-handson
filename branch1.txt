@@ -1,2 +1,0 @@
-sd
-val df = df1.groupby("name")
